@@ -1,30 +1,57 @@
+/*  SPDX-License-Identifier: BSD-2-Clause OR GPL-3.0-or-later */
 /*
  *  CAN Interface API, Version 3 (Data Types and Defines)
  *
- *  Copyright (C) 2004-2020  Uwe Vogt, UV Software, Berlin (info@uv-software.com)
+ *  Copyright (c) 2004-2022 Uwe Vogt, UV Software, Berlin (info@uv-software.com)
+ *  All rights reserved.
  *
  *  This file is part of CAN API V3.
  *
+ *  CAN API V3 is dual-licensed under the BSD 2-Clause "Simplified" License and
+ *  under the GNU General Public License v3.0 (or any later version).
+ *  You can choose between one of them if you use this file.
+ *
+ *  BSD 2-Clause "Simplified" License:
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *  1. Redistributions of source code must retain the above copyright notice, this
+ *     list of conditions and the following disclaimer.
+ *  2. Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *
+ *  CAN API V3 IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ *  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ *  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ *  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *  OF CAN API V3, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  GNU General Public License v3.0 or later:
  *  CAN API V3 is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Lesser General Public License as published by
+ *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  CAN API V3 is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Lesser General Public License for more details.
+ *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU Lesser General Public License
+ *  You should have received a copy of the GNU General Public License
  *  along with CAN API V3.  If not, see <http://www.gnu.org/licenses/>.
  */
 /** @file        CANAPI_Types.h
  *
  *  @brief       CAN API V3 for generic CAN Interfaces - Data Types and Defines
  *
- *  @author      $Author: eris $
+ *  @author      $Author: haumea $
  *
- *  @version     $Rev: 915 $
+ *  @version     $Rev: 1036 $
  *
  *  @addtogroup  can_api
  *  @{
@@ -49,13 +76,16 @@ extern "C" {
  */
 
 /** @note  Set define OPTION_CANAPI_LIBRARY to a non-zero value to compile
- *         the master loader library (e.g. in the build environment). Or optionally
- *         set define OPTION_CANAPI_DRIVER to a non-zero value to compile
- *         a driver library.
+ *         the master loader library (e.g. in the build environment). Or
+ *         optionally set define OPTION_CANAPI_DRIVER to a non-zero value
+ *         to compile a driver/wrapper library.
  */
 /** @note  Set define OPTION_CAN_2_0_ONLY to a non-zero value to compile
  *         with CAN 2.0 frame format only (e.g. in the build environment).
  */
+#if (OPTION_CAN_2_0_ONLY != 0)
+#warning Compilation with legacy CAN 2.0 frame format!
+#endif
 
 /*  -----------  defines  ------------------------------------------------
  */
@@ -79,14 +109,14 @@ extern "C" {
 /** @name  CAN Data Length
  *  @brief CAN payload length and DLC definition
  *  @{ */
-#define CAN_MAX_DLC                  8  /**< max. data lenth code (CAN 2.0) */
+#define CAN_MAX_DLC                  8  /**< max. data length code (CAN 2.0) */
 #define CAN_MAX_LEN                  8  /**< max. payload length (CAN 2.0) */
 /** @} */
 
 /** @name  CAN FD Data Length
  *  @brief CAN FD payload length and DLC definition
  *  @{ */
-#define CANFD_MAX_DLC               15  /**< max. data lenth code (CAN FD) */
+#define CANFD_MAX_DLC               15  /**< max. data length code (CAN FD) */
 #define CANFD_MAX_LEN               64  /**< max. payload length (CAN FD) */
 /** @} */
 
@@ -265,25 +295,30 @@ extern "C" {
 #define CANPROP_GET_DEVICE_TYPE     10U /**< device type of the CAN interface (int32_t) */
 #define CANPROP_GET_DEVICE_NAME     11U /**< device name of the CAN interface (char[256]) */
 #define CANPROP_GET_DEVICE_VENDOR   12U /**< vendor name of the CAN interface (char[256]) */
-#define CANPROP_GET_DEVICE_DLLNAME  13U /**< file name of the CAN interface DLL(char[256]) */
+#define CANPROP_GET_DEVICE_DLLNAME  13U /**< file name of the CAN interface DLL (char[256]) */
 #define CANPROP_GET_DEVICE_PARAM    14U /**< device parameter of the CAN interface (char[256]) */
 #define CANPROP_GET_OP_CAPABILITY   15U /**< supported operation modes of the CAN controller (uint8_t) */
 #define CANPROP_GET_OP_MODE         16U /**< active operation mode of the CAN controller (uint8_t) */
 #define CANPROP_GET_BITRATE         17U /**< active bit-rate of the CAN controller (can_bitrate_t) */
 #define CANPROP_GET_SPEED           18U /**< active bus speed of the CAN controller (can_speed_t) */
 #define CANPROP_GET_STATUS          19U /**< current status register of the CAN controller (uint8_t) */
-#define CANPROP_GET_BUSLOAD         20U /**< current bus load of the CAN controller (uint8_t) */
+#define CANPROP_GET_BUSLOAD         20U /**< current bus load of the CAN controller (uint16_t) */
+#define CANPROP_GET_NUM_CHANNELS    21U /**< numbers of CAN channels on the CAN interface (uint8_t) */
+#define CANPROP_GET_CAN_CHANNEL     22U /**< active CAN channel on the CAN interface (uint8_t) */
 #define CANPROP_GET_TX_COUNTER      24U /**< total number of sent messages (uint64_t) */
-#define CANPROP_GET_RX_COUNTER      25U /**< total number of reveiced messages (uint64_t) */
-#define CANPROP_GET_ERR_COUNTER     26U /**< total number of reveiced error frames (uint64_t) */
-#define CANPROP_GET_FLT_11BIT_CODE  32U /**< accecptance filter code of 11-bit identifier (int32_t) */
-#define CANPROP_GET_FLT_11BIT_MASK  33U /**< accecptance filter mask of 11-bit identifier (int32_t) */
-#define CANPROP_GET_FLT_29BIT_CODE  34U /**< accecptance filter code of 29-bit identifier (int32_t) */
-#define CANPROP_GET_FLT_29BIT_MASK  35U /**< accecptance filter mask of 29-bit identifier (int32_t) */
-#define CANPROP_SET_FLT_11BIT_CODE  36U /**< set value for accecptance filter code of 11-bit identifier (int32_t) */
-#define CANPROP_SET_FLT_11BIT_MASK  37U /**< set value for accecptance filter mask of 11-bit identifier (int32_t) */
-#define CANPROP_SET_FLT_29BIT_CODE  38U /**< set value for accecptance filter code of 29-bit identifier (int32_t) */
-#define CANPROP_SET_FLT_29BIT_MASK  39U /**< set value for accecptance filter mask of 29-bit identifier (int32_t) */
+#define CANPROP_GET_RX_COUNTER      25U /**< total number of received messages (uint64_t) */
+#define CANPROP_GET_ERR_COUNTER     26U /**< total number of received error frames (uint64_t) */
+#define CANPROP_GET_RCV_QUEUE_SIZE  27U /**< maximum number of message the receive queue can hold (uint32_t) */
+#define CANPROP_GET_RCV_QUEUE_HIGH  28U /**< maximum number of message the receive queue has hold (uint32_t) */
+#define CANPROP_GET_RCV_QUEUE_OVFL  29U /**< overflow counter of the receive queue (uint64_t) */
+#define CANPROP_GET_FLT_11BIT_CODE  32U /**< acceptance filter code of 11-bit identifier (int32_t) */
+#define CANPROP_GET_FLT_11BIT_MASK  33U /**< acceptance filter mask of 11-bit identifier (int32_t) */
+#define CANPROP_GET_FLT_29BIT_CODE  34U /**< acceptance filter code of 29-bit identifier (int32_t) */
+#define CANPROP_GET_FLT_29BIT_MASK  35U /**< acceptance filter mask of 29-bit identifier (int32_t) */
+#define CANPROP_SET_FLT_11BIT_CODE  36U /**< set value for acceptance filter code of 11-bit identifier (int32_t) */
+#define CANPROP_SET_FLT_11BIT_MASK  37U /**< set value for acceptance filter mask of 11-bit identifier (int32_t) */
+#define CANPROP_SET_FLT_29BIT_CODE  38U /**< set value for acceptance filter code of 29-bit identifier (int32_t) */
+#define CANPROP_SET_FLT_29BIT_MASK  39U /**< set value for acceptance filter mask of 29-bit identifier (int32_t) */
 #if (OPTION_CANAPI_LIBRARY != 0)
 /* - -  build-in bit-rate conversion  - - - - - - - - - - - - - - - - - */
 #define CANPROP_GET_BTR_INDEX       64U /**< bit-rate as CiA index (int32_t) */
@@ -325,12 +360,36 @@ extern "C" {
 #define CANPROP_SET_FMT_RX_PROMPT  162U /**< set formatter option: prompt for received messages (char[6+1]) */
 #define CANPROP_SET_FMT_TX_PROMPT  163U /**< set formatter option: prompt for sent messages (char[6+1]) */
 #endif
-/* - -  access to vendor-specific propUrties  - - - - - - - - - - - - - */
-#define CANPROP_GET_VENDOR_PROP    256U /**< get a vendor-specific property value (void*) */
-#define CANPROP_SET_VENDOR_PROP    512U /**< set a vendor-specific property value (void*) */
+/* - -  access to vendor and interface list - - - - - - - - - - - - - - */
+#if (OPTION_CANAPI_LIBRARY != 0)
+#define CANPROP_SET_FIRST_VENDOR   224U /**< set index to the first entry in the vendor list (NULL) */
+#define CANPROP_SET_NEXT_VENDOR    225U /**< set index to the next entry in the vendor list (NULL) */
+#define CANPROP_GET_VENDOR_ID      226U /**< get library id at actual index in the vendor list (int32_t) */
+#define CANPROP_GET_VENDOR_NAME    227U /**< get vendor name at actual index in the vendor list (char[256]) */
+#define CANPROP_GET_VENDOR_DLLNAME 228U /**< get file name of the DLL at actual index in the vendor list (char[256]) */
+#endif
+#define CANPROP_SET_FIRST_CHANNEL  240U /**< set index to the first entry in the interface list (int32_t or NULL) */
+#define CANPROP_SET_NEXT_CHANNEL   241U /**< set index to the next entry in the interface list (NULL) */
+#define CANPROP_GET_CHANNEL_NO     242U /**< get channel no. at actual index in the interface list (int32_t) */
+#define CANPROP_GET_CHANNEL_NAME   243U /**< get channel name at actual index in the interface list (char[256]) */
+#define CANPROP_GET_CHANNEL_DLLNAME 244U /**< get file name of the DLL at actual index in the interface list (char[256]) */
+#define CANPROP_GET_CHANNEL_VENDOR_ID 245U /**< get library id at actual index in the interface list (int32_t) */
+#define CANPROP_GET_CHANNEL_VENDOR_NAME 246U /**< get vendor name at actual index in the interface list (char[256]) */
+/* - -  search path for JSON files (for C++ wrapper classes)  - - - - - */
+#if (OPTION_CANAPI_LIBRARY != 0)
+#define CANPROP_SET_SEARCH_PATH    253U /**< set search path for interface configuration files (char[256]) */
+#endif
+/* - -  access to device handle (for C++ wrapper classes) - - - - - - - */
+#define CANPROP_GET_CPP_BACKDOOR   255U /**< get device handle (int32_t) */
+/* - -  access to vendor-specific properties  - - - - - - - - - - - - - */
+#define CANPROP_GET_VENDOR_PROP    256U /**< offset to get a vendor-specific property value (void*) */
+#define CANPROP_SET_VENDOR_PROP    512U /**< offset to set a vendor-specific property value (void*) */
 #define CANPROP_VENDOR_PROP_RANGE  256U /**< range for vendor-specific property values */
 #define CANPROP_MAX_BUFFER_SIZE    256U /**< max. buffer size for property values */
 #define CANPROP_MAX_STRING_LENGTH 1024U /**< max. length of a formatted message */
+/* - -  aliases (legacy names)  - - - - - - - - - - - - - - - - - - - - */
+#define CANPROP_GET_CHANNEL_TYPE        CANPROP_GET_CHANNEL_NO
+#define CANPROP_GET_RCV_QUEUE_MAX       CANPROP_GET_RCV_QUEUE_SIZE
 /** @} */
 
 /** @name  Property Values

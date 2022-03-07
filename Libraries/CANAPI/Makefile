@@ -1,7 +1,7 @@
 #
 #	CAN Interface API, Version 3 (for Rusoku TouCAN USB Interfaces)
 #
-#	Copyright (C) 2020  Uwe Vogt, UV Software, Berlin (info@mac-can.com)
+#	Copyright (C) 2020-2021  Uwe Vogt, UV Software, Berlin (info@mac-can.com)
 #
 #	This file is part of MacCAN-TouCAN.
 #
@@ -23,52 +23,60 @@ current_OS := $(patsubst CYGWIN%,Cygwin,$(current_OS))
 current_OS := $(patsubst MINGW%,MinGW,$(current_OS))
 current_OS := $(patsubst MSYS%,MinGW,$(current_OS))
 
-##############################################################################
+HOME_DIR = ../..
+
+SOURCE_DIR = $(HOME_DIR)/Sources
+CANAPI_DIR = $(HOME_DIR)/Sources/CANAPI
+MACCAN_DIR = $(HOME_DIR)/Sources/MacCAN
+TOUCAN_DIR = $(HOME_DIR)/Sources/Driver
+WRAPPER_DIR = $(HOME_DIR)/Sources/Wrapper
+
+OBJECTS = $(OUTDIR)/TouCAN_Driver.o $(OUTDIR)/TouCAN_USB_Driver.o \
+	$(OUTDIR)/TouCAN_USB_Device.o $(OUTDIR)/TouCAN_USB.o \
+	$(OUTDIR)/MacCAN_Devices.o $(OUTDIR)/MacCAN_Debug.o \
+	$(OUTDIR)/MacCAN_IOUsbKit.o $(OUTDIR)/MacCAN_MsgQueue.o \
+	$(OUTDIR)/can_api.o $(OUTDIR)/can_btr.o
+
+
+ifeq ($(current_OS),Darwin) # macOS - libUVCANTOU.dylib
 
 LIBRARY = libUVCANTOU
 
 MAJOR = 0
-MINOR = 1
-PATCH = 1
+MINOR = 2
+PATCH = 3
 
 VERSION = $(MAJOR).$(MINOR).$(PATCH)
 TARGET  = $(LIBRARY).$(VERSION).dylib
+STATIC  = $(LIBRARY).a
 
 INSTALL_NAME = $(TARGET)
-CURRENT_VERSION = $(VERSION)
+CURRENT_VERSION = $(MAJOR).$(MINOR).$(PATCH)
 COMPATIBILITY_VERSION = $(MAJOR).$(MINOR).0
 
 INSTALL = /usr/local/lib
 
 INCLUDE = /usr/local/include
 
-HOME_DIR = ../..
-
-SOURCE_DIR = $(HOME_DIR)/Sources
-CANAPI_DIR = $(HOME_DIR)/Sources/CANAPI
-MACCAN_DIR = $(HOME_DIR)/Sources/MacCAN_Core
-TOUCAN_DIR = $(HOME_DIR)/Sources/TouCAN_Driver
-
-##############################################################################
-
-OBJECTS = $(OUTDIR)/can_api.o $(OUTDIR)/can_btr.o \
-	$(OUTDIR)/MacCAN.o $(OUTDIR)/MacCAN_Debug.o $(OUTDIR)/MacCAN_Devices.o \
-	$(OUTDIR)/MacCAN_IOUsbKit.o $(OUTDIR)/MacCAN_IOUsbPipe.o \
-	$(OUTDIR)/TouCAN.o $(OUTDIR)/TouCAN_USB.o
-
-DEFINES = -DOPTION_CAN_2_0_ONLY=0 \
-	-DOPTION_CANAPI_TOUCAN_DYLIB=1 \
+DEFINES = -DOPTION_CANAPI_TOUCAN_DYLIB=1 \
 	-DOPTION_CANAPI_DRIVER=1 \
 	-DOPTION_CANAPI_RETVALS=1 \
 	-DOPTION_CANAPI_COMPANIONS=1 \
-	-DOPTION_CANAPI_DEBUG_LEVEL=0 \
+	-DOPTION_MACCAN_PIPE_INFO=0 \
+	-DOPTION_MACCAN_PIPE_TIMEOUT=0 \
+	-DOPTION_MACCAN_MULTICHANNEL=0 \
+	-DOPTION_MACCAN_LOGGER=0 \
 	-DOPTION_MACCAN_DEBUG_LEVEL=0 \
-	-DOPTION_MACCAN_INSTRUMENTATION=0
+	-DOPTION_MACCAN_INSTRUMENTATION=0 \
+	-DOPTION_CANAPI_DEBUG_LEVEL=0 \
+	-DOPTION_CANAPI_INSTRUMENTATION=0 \
+	-DOPTION_CAN_2_0_ONLY=0
 
 HEADERS = -I$(SOURCE_DIR) \
 	-I$(CANAPI_DIR) \
 	-I$(MACCAN_DIR) \
-	-I$(TOUCAN_DIR)
+	-I$(TOUCAN_DIR) \
+	-I$(WRAPPER_DIR)
 
 CFLAGS += -O2 -Wall -Wno-parentheses \
 	-fno-strict-aliasing \
@@ -81,55 +89,85 @@ CXXFLAGS += -g -Wall -Wextra -pthread \
 
 LIBRARIES =
 
-LDFLAGS  += -nostartfiles -dynamiclib -fvisibility=hidden \
+LDFLAGS += -lpthread \
+	-nostartfiles -dynamiclib -fvisibility=hidden \
 	-Wl,-framework -Wl,IOKit -Wl,-framework -Wl,CoreFoundation \
 	-install_name $(INSTALL_NAME) \
 	-current_version $(CURRENT_VERSION) \
 	-compatibility_version $(COMPATIBILITY_VERSION)
 
-##############################################################################
+LTFLAGS += -static
 
-CXX = g++
-CC = gcc
-LD = g++
+ifeq ($(BINARY),UNIVERSAL)
+CFLAGS += -arch arm64 -arch x86_64
+CXXFLAGS += -arch arm64 -arch x86_64
+LDFLAGS += -arch arm64 -arch x86_64
+endif
+endif
+
+
+CXX = clang++
+CC = clang
+LD = clang
+LT = libtool
 RM = rm -f
 CP = cp -f
+LN = ln -s
 
 OUTDIR = .objects
+BINDIR = $(HOME_DIR)/Binaries
+INCDIR = $(HOME_DIR)/Includes
 
-.PHONY: info outdir
+.PHONY: info outdir bindir incdir
 
-all: info outdir $(TARGET)
+
+all: info outdir bindir incdir $(STATIC) $(TARGET)
 
 info:
-	@echo $(CXX)" on "$(current_OS)
-	@echo "Target: "$(TARGET)
+	@echo $(CC)" on "$(current_OS)
+	@echo "target: "$(TARGET)
 	@echo "install: "$(INSTALL)
 
 outdir:
 	@mkdir -p $(OUTDIR)
 
+bindir:
+	@mkdir -p $(BINDIR)
+
+incdir:
+	@mkdir -p $(INCDIR)
+	@cp $(SOURCE_DIR)/TouCAN_Defines.h $(INCDIR)
+	@cp $(CANAPI_DIR)/can_api.h $(INCDIR)
+	@cp $(CANAPI_DIR)/CANAPI_Types.h $(INCDIR)
+	@cp $(CANAPI_DIR)/CANAPI_Defines.h $(INCDIR)
+
 clean:
-	$(RM) $(TARGET) $(OUTDIR)/*.o $(OUTDIR)/*.d
+	$(RM) $(TARGET) $(STATIC) $(OUTDIR)/*.o $(OUTDIR)/*.d
+
+pristine:
+	$(RM) *.dylib *.a $(OUTDIR)/*.o $(OUTDIR)/*.d
+	$(RM) $(BINDIR)/*.dylib $(BINDIR)/*.a
+	$(RM) $(INCDIR)/*.h
 
 install:
 	@echo "Copying library file..."
 	$(CP) $(TARGET) $(INSTALL)
 ifeq ($(current_OS),Darwin)
-	$(RM) $(INSTALL)/$(LIBRARY).dylib; ln -s $(INSTALL)/$(TARGET) $(INSTALL)/$(LIBRARY).dylib
+	$(RM) $(INSTALL)/$(LIBRARY).dylib ; $(LN) $(INSTALL)/$(TARGET) $(INSTALL)/$(LIBRARY).dylib
 endif
-	@echo "Copying header files..."
-	$(CP) $(HOME_DIR)/Sources/CANAPI/can_api.h $(INCLUDE)
-	$(CP) $(HOME_DIR)/Sources/CANAPI/CANAPI_Types.h $(INCLUDE)
-	$(CP) $(HOME_DIR)/Sources/CANAPI/CANAPI_Defines.h $(INCLUDE)
 
-##############################################################################
 
-$(OUTDIR)/can_api.o: ./can_api.cpp
-	$(CXX) $(CXXFLAGS) -MMD -MF $*.d -o $@ -c $<
+$(OUTDIR)/TouCAN_Driver.o: $(TOUCAN_DIR)/TouCAN_Driver.c
+	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
 
-$(OUTDIR)/MacCAN.o: $(MACCAN_DIR)/MacCAN.cpp
-	$(CXX) $(CXXFLAGS) -MMD -MF $*.d -o $@ -c $<
+$(OUTDIR)/TouCAN_USB_Driver.o: $(TOUCAN_DIR)/TouCAN_USB_Driver.c
+	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
+
+$(OUTDIR)/TouCAN_USB_Device.o: $(TOUCAN_DIR)/TouCAN_USB_Device.c
+	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
+
+$(OUTDIR)/TouCAN_USB.o: $(TOUCAN_DIR)/TouCAN_USB.c
+	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
 
 $(OUTDIR)/MacCAN_Debug.o: $(MACCAN_DIR)/MacCAN_Debug.c
 	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
@@ -140,22 +178,24 @@ $(OUTDIR)/MacCAN_Devices.o: $(MACCAN_DIR)/MacCAN_Devices.c
 $(OUTDIR)/MacCAN_IOUsbKit.o: $(MACCAN_DIR)/MacCAN_IOUsbKit.c
 	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
 
-$(OUTDIR)/MacCAN_IOUsbPipe.o: $(MACCAN_DIR)/MacCAN_IOUsbPipe.c
+$(OUTDIR)/MacCAN_MsgQueue.o: $(MACCAN_DIR)/MacCAN_MsgQueue.c
+	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
+
+$(OUTDIR)/can_api.o: $(WRAPPER_DIR)/can_api.c
 	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
 
 $(OUTDIR)/can_btr.o: $(CANAPI_DIR)/can_btr.c
 	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
 
-$(OUTDIR)/TouCAN.o: $(SOURCE_DIR)/TouCAN.cpp
-	$(CXX) $(CXXFLAGS) -MMD -MF $*.d -o $@ -c $<
 
-$(OUTDIR)/TouCAN_USB.o: $(TOUCAN_DIR)/TouCAN_USB.c
-	$(CC) $(CFLAGS) -MMD -MF $*.d -o $@ -c $<
-
-##############################################################################
+$(STATIC): $(OBJECTS)
+	$(LT) $(LTFLAGS) -o $@ $(OBJECTS) $(LIBRARIES)
+	$(CP) $@ $(BINDIR)
+	@lipo -archs $@
+	@echo "\033[1mTarget '"$@"' successfully build\033[0m"
 
 $(TARGET): $(OBJECTS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBRARIES)
-	@echo "Target '"$@"' successfully build"
-
-##############################################################################
+	$(CP) $@ $(BINDIR)
+	@lipo -archs $@
+	@echo "\033[1mTarget '"$@"' successfully build\033[0m"

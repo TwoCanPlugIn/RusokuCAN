@@ -1,21 +1,48 @@
+/*  SPDX-License-Identifier: BSD-2-Clause OR GPL-3.0-or-later */
 /*
  *  CAN Interface API, Version 3 (generic)
  *
- *  Copyright (C) 2004-2020  Uwe Vogt, UV Software, Berlin (info@uv-software.com)
+ *  Copyright (c) 2004-2022 Uwe Vogt, UV Software, Berlin (info@uv-software.com)
+ *  All rights reserved.
  *
  *  This file is part of CAN API V3.
  *
+ *  CAN API V3 is dual-licensed under the BSD 2-Clause "Simplified" License and
+ *  under the GNU General Public License v3.0 (or any later version).
+ *  You can choose between one of them if you use this file.
+ *
+ *  BSD 2-Clause "Simplified" License:
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *  1. Redistributions of source code must retain the above copyright notice, this
+ *     list of conditions and the following disclaimer.
+ *  2. Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *
+ *  CAN API V3 IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ *  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ *  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ *  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *  OF CAN API V3, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  GNU General Public License v3.0 or later:
  *  CAN API V3 is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Lesser General Public License as published by
+ *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  CAN API V3 is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Lesser General Public License for more details.
+ *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU Lesser General Public License
+ *  You should have received a copy of the GNU General Public License
  *  along with CAN API V3.  If not, see <http://www.gnu.org/licenses/>.
  */
 /** @file        can_api.h
@@ -24,7 +51,7 @@
  *
  *  @author      $Author: eris $
  *
- *  @version     $Rev: 914 $
+ *  @version     $Rev: 1020 $
  *
  *  @defgroup    can_api CAN Interface API, Version 3
  *  @{
@@ -39,28 +66,38 @@ extern "C" {
 /*  -----------  includes  -----------------------------------------------
  */
 
-#include "CANAPI_Defines.h"             /* CAN definitions and options */
 #include "CANAPI_Types.h"               /* CAN API data types and defines */
 
 
 /*  -----------  options  ------------------------------------------------
  */
 
+/** @note  Set define OPTION_CANAPI_LIBRARY to a non-zero value to compile
+ *         the master loader library (e.g. in the build environment). Or
+ *         optionally set define OPTION_CANAPI_DRIVER to a non-zero value
+ *         to compile a driver/wrapper library.
+ */
+/** @note  Set define OPTION_CANAPI_DLLEXPORT to a non-zero value to compile
+ *         as a dynamic link library (e.g. in the build environment).
+ *         In your project set define OPTION_CANAPI_DLLIMPORT to a non-zero
+ *         value to load the dynamic link library at run-time. Or set it to
+ *         zero to compile your program with the CAN API source files or to
+ *         link your program with the static library at compile-time.
+ */
 #if (CAN_API_SPEC != 0x300)
-    #error Requires version 3.0 of CANAPI_Types.h
+#error Requires version 3.0 of CANAPI_Types.h
 #endif
-#if (OPTION_CAN_2_0_ONLY != 0)
-    #error Requires CAN FD message format
+#if (OPTION_CANAPI_LIBRARY == 0)
+#if  (OPTION_CANAPI_DRIVER == 0)
+#define OPTION_CANAPI_DRIVER  1
 #endif
-#if (OPTION_CANAPI_LIBRARY == 0) && (OPTION_CANAPI_DRIVER == 0)
-    #error Option for function signatures not set
 #endif
 #if (OPTION_CANAPI_DLLEXPORT != 0)
-    #define CANAPI  __declspec(dllexport)
+#define CANAPI  __declspec(dllexport)
 #elif (OPTION_CANAPI_DLLIMPORT != 0)
-    #define CANAPI  __declspec(dllimport)
+#define CANAPI  __declspec(dllimport)
 #else
-    #define CANAPI  extern
+#define CANAPI  extern
 #endif
 
 /*  -----------  defines  ------------------------------------------------
@@ -83,6 +120,7 @@ typedef int                             can_handle_t;
  *  @{ */
 #define can_transmit(hnd, msg)          can_write(hnd, msg, 0U)
 #define can_receive(hnd, msg)           can_read(hnd, msg, 0U)
+#define can_software(hnd)               can_firmware(hnd)
 #define can_msg_t                       can_message_t
 /** @} */
 
@@ -128,10 +166,10 @@ CANAPI can_board_t can_boards[];        /**< list of CAN interface boards */
 /*  -----------  prototypes  ---------------------------------------------
  */
 
-/** @brief       tests if the CAN interface (hardware and driver) given by
- *               the arguments 'library' and 'board' is present, and if the
- *               requested operation mode is supported by the CAN controller
- *               board.
+/** @brief       probes if the CAN interface (hardware and driver) given by
+ *               the argument [ 'library' and ] 'channel' is present, and
+ *               if the requested operation mode is supported by the CAN
+ *               controller.
  *
  *  @note        When a requested operation mode is not supported by the
  *               CAN controller, error CANERR_ILLPARA will be returned.
@@ -140,13 +178,13 @@ CANAPI can_board_t can_boards[];        /**< list of CAN interface boards */
  *               by another initialized CAN interface.
  *
  *  @param[in]   library - library id of the CAN interface
- *  @param[in]   board   - type of the CAN controller board
+ *  @param[in]   channel - channel number of the CAN interface
  *  @param[in]   mode    - operation mode to be checked
- *  @param[in]   param   - pointer to board-specific parameters
- *  @param[out]  result  - result of the board test:
- *                             < 0 - board is not present,
- *                             = 0 - board is present,
- *                             > 0 - board is present, but in use
+ *  @param[in]   param   - pointer to interface-specific parameters
+ *  @param[out]  result  - result of the channel test:
+ *                             < 0 - channel is not present,
+ *                             = 0 - channel is present,
+ *                             > 0 - channel is present, but in use
  *
  *  @returns     0 if successful, or a negative value on error.
  *
@@ -156,19 +194,19 @@ CANAPI can_board_t can_boards[];        /**< list of CAN interface boards */
  *  @retval      others           - vendor-specific
  */
 #if (OPTION_CANAPI_LIBRARY != 0)
-CANAPI int can_test(int32_t library, int32_t board, uint8_t mode, const void *param, int *result);
+CANAPI int can_test(int32_t library, int32_t channel, uint8_t mode, const void *param, int *result);
 #else
-CANAPI int can_test(int32_t board, uint8_t mode, const void *param, int *result);
+CANAPI int can_test(int32_t channel, uint8_t mode, const void *param, int *result);
 #endif
 
 /** @brief       initializes the CAN interface (hardware and driver) by loading
  *               and starting the appropriate DLL for the specified CAN controller
- *               board given by the arguments 'library' and 'board'.
+ *               board given by the argument [ 'library' and ] 'channel'.
  *               The operation state of the CAN controller is set to 'stopped';
  *               no communication is possible in this state.
  *
  *  @param[in]   library - library id of the CAN interface
- *  @param[in]   board   - type of the CAN controller board
+ *  @param[in]   channel - channel number of the CAN interface
  *  @param[in]   mode    - operation mode of the CAN controller
  *  @param[in]   param   - pointer to board-specific parameters
  *
@@ -181,9 +219,9 @@ CANAPI int can_test(int32_t board, uint8_t mode, const void *param, int *result)
  *  @retval      others           - vendor-specific
  */
 #if (OPTION_CANAPI_LIBRARY != 0)
-CANAPI int can_init(int32_t library, int32_t board, uint8_t mode, const void *param);
+CANAPI int can_init(int32_t library, int32_t channel, uint8_t mode, const void *param);
 #else
-CANAPI int can_init(int32_t board, uint8_t mode, const void *param);
+CANAPI int can_init(int32_t channel, uint8_t mode, const void *param);
 #endif
 
 
@@ -205,6 +243,30 @@ CANAPI int can_init(int32_t board, uint8_t mode, const void *param);
  *  @retval      others           - vendor-specific
  */
 CANAPI int can_exit(int handle);
+
+
+/** @brief       signals a waiting event object of the CAN interface. This can
+ *               be used to terminate a blocking read operation in progress
+ *               (e.g. by means of a Ctrl-C handler or similar).
+ *
+ *  @remarks     Some drivers are using waitable objects to realize blocking
+ *               operations by a call to WaitForSingleObject (Windows) or
+ *               pthread_cond_wait (POSIX), but these waitable objects are
+ *               no cancellation points. This means that they cannot be
+ *               terminated by Ctrl-C (SIGINT).
+ *
+ *  @note        SIGINT is not supported for any Win32 application. [MSVC Docs]
+ *
+ *  @param[in]   handle  - handle of the CAN interface, or (-1) to signal all
+ *
+ *  @returns     0 if successful, or a negative value on error.
+ *
+ *  @retval      CANERR_NOTINIT   - library not initialized
+ *  @retval      CANERR_HANDLE    - invalid interface handle
+ *  @retval      CANERR_NOTSUPP   - function not supported
+ *  @retval      others           - vendor-specific
+ */
+CANAPI int can_kill(int handle);
 
 
 /** @brief       initializes the operation mode and the bit-rate settings of the
@@ -252,7 +314,7 @@ CANAPI int can_reset(int handle);
  *  @param[in]   timeout - time to wait for the transmission of a message:
  *                              0 means the function returns immediately,
  *                              65535 means blocking read, and any other
- *                              value means the time to wait im milliseconds
+ *                              value means the time to wait in milliseconds
  *
  *  @returns     0 if successful, or a negative value on error.
  *
@@ -276,7 +338,7 @@ CANAPI int can_write(int handle, const can_message_t *message, uint16_t timeout)
  *  @param[in]   timeout - time to wait for the reception of a message:
  *                              0 means the function returns immediately,
  *                              65535 means blocking read, and any other
- *                              value means the time to wait im milliseconds
+ *                              value means the time to wait in milliseconds
  *
  *  @returns     0 if successful, or a negative value on error.
  *
@@ -289,30 +351,6 @@ CANAPI int can_write(int handle, const can_message_t *message, uint16_t timeout)
  *  @retval      others           - vendor-specific
  */
 CANAPI int can_read(int handle, can_message_t *message, uint16_t timeout);
-
-
-/** @brief       signals a waiting event object of the CAN interface. This can
- *               be used to terminate a blocking read operation in progress
- *               (e.g. by means of a Ctrl-C handler or similar).
- *
- *  @remarks     Some drivers are using waitable objects to realize blocking
- *               operations by a call to WaitForSingleObject (Windows) or
- *               pthread_cond_wait (POSIX), but these waitable objects are
- *               no cancellation points. This means that they cannot be
- *               terminated by Ctrl-C (SIGINT).
- *
- *  @note        SIGINT is not supported for any Win32 application. [MSVC Docs]
- *
- *  @param[in]   handle  - handle of the CAN interface, or (-1) to signal all
- *
- *  @returns     0 if successful, or a negative value on error.
- *
- *  @retval      CANERR_NOTINIT   - library not initialized
- *  @retval      CANERR_HANDLE    - invalid interface handle
- *  @retval      CANERR_NOTSUPP   - function not supported
- *  @retval      others           - vendor-specific
- */
-CANAPI int can_kill(int handle);
 
 
 /** @brief       retrieves the status register of the CAN interface.
@@ -376,19 +414,19 @@ CANAPI int can_bitrate(int handle, can_bitrate_t *bitrate, can_speed_t *speed);
  *  @param[in]   param    - property id to be read or to be written
  *  @param[out]  value    - pointer to a buffer for the value to be read
  *  @param[in]   value    - pointer to a buffer with the value to be written
- *  @param[in]   nbytes   - size of the given buffer in bytes
+ *  @param[in]   nbyte   -  size of the given buffer in byte
  *
  *  @returns     0 if successful, or a negative value on error.
  *
  *  @retval      CANERR_NOTINIT   - library not initialized
  *  @retval      CANERR_HANDLE    - invalid interface handle
  *  @retval      CANERR_NULLPTR   - null-pointer assignment
- *  @retval      CANERR_ILLPARA   - illegal parameter, value or nbytes
+ *  @retval      CANERR_ILLPARA   - illegal parameter, value or nbyte
  *  @retval      CANERR_...       - tbd.
  *  @retval      CANERR_NOTSUPP   - property or function not supported
  *  @retval      others           - vendor-specific
  */
-CANAPI int can_property(int handle, uint16_t param, void *value, uint32_t nbytes);
+CANAPI int can_property(int handle, uint16_t param, void *value, uint32_t nbyte);
 
 
 /** @brief       retrieves the hardware version of the CAN controller
@@ -408,7 +446,7 @@ CANAPI char *can_hardware(int handle);
  *
  *  @returns     pointer to a zero-terminated string, or NULL on error.
  */
-CANAPI char *can_software(int handle);
+CANAPI char *can_firmware(int handle);
 
 
 #if (OPTION_CANAPI_LIBRARY != 0)
@@ -431,7 +469,7 @@ CANAPI char *can_library(int handle);
  *
  *  @returns     pointer to a zero-terminated string, or NULL on error.
  */
-CANAPI char* can_version();
+CANAPI char* can_version(void);
 
 
 #ifdef __cplusplus
